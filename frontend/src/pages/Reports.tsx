@@ -29,14 +29,22 @@ const statusConfig = {
 }
 
 export default function Reports() {
+  const { t } = useThemeLanguage()
+  const { data: apiReportsData } = useQuery({
+    queryKey: ['reports'],
+    queryFn: apiService.getReports,
+  })
+
+  const reportsList = apiReportsData?.reports || defaultReports
+
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Reports</h1>
-          <p className="text-sm text-slate-400 mt-0.5">AI-generated reports · PDF export · Audit trail</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{t('reports')}</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">AI-generated reports · PDF export · Audit trail</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 rounded-xl text-sm font-medium hover:bg-cyan-500/30 transition-colors">
+        <button className="flex items-center gap-2 px-4 py-2 bg-cyan-50 dark:bg-cyan-500/20 border border-cyan-200 dark:border-cyan-500/40 text-cyan-700 dark:text-cyan-400 rounded-xl text-sm font-semibold hover:bg-cyan-100 transition-colors">
           <BrainCircuit className="w-4 h-4" /> Generate AI Report
         </button>
       </motion.div>
@@ -44,24 +52,24 @@ export default function Reports() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Reports', value: '6', icon: FileText, color: 'text-cyan-400' },
-          { label: 'Published', value: '4', icon: CheckCircle, color: 'text-emerald-400' },
-          { label: 'AI Generated', value: '5', icon: BrainCircuit, color: 'text-purple-400' },
-          { label: 'Pending Review', value: '1', icon: AlertTriangle, color: 'text-amber-400' },
+          { label: 'Total Reports', value: reportsList.length, icon: FileText, color: 'text-cyan-600 dark:text-cyan-400' },
+          { label: 'Published', value: '4', icon: CheckCircle, color: 'text-emerald-600 dark:text-emerald-400' },
+          { label: 'AI Generated', value: '5', icon: BrainCircuit, color: 'text-purple-600 dark:text-purple-400' },
+          { label: 'Pending Review', value: '1', icon: AlertTriangle, color: 'text-amber-600 dark:text-amber-400' },
         ].map(({ label, value, icon: Icon, color }, i) => (
           <motion.div key={label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }} className="glass-card p-4 flex items-center gap-3">
             <Icon className={`w-5 h-5 ${color} flex-shrink-0`} />
-            <div><p className="text-xl font-bold text-white">{value}</p><p className="text-xs text-slate-400">{label}</p></div>
+            <div><p className="text-xl font-bold text-slate-900 dark:text-white">{value}</p><p className="text-xs text-slate-600 dark:text-slate-400">{label}</p></div>
           </motion.div>
         ))}
       </div>
 
       {/* Reports Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {reports.map((report, i) => {
-          const sConf = statusConfig[report.status as keyof typeof statusConfig]
+        {reportsList.map((report: any, i: number) => {
+          const sConf = statusConfig[report.status as keyof typeof statusConfig] || statusConfig.Published
           const StatusIcon = sConf.icon
-          const colors = colorMap[report.color]
+          const colors = colorMap[report.color] || colorMap.cyan
           return (
             <motion.div key={report.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
               className={`glass-card p-5 border ${colors.split(' ')[0]} hover:border-opacity-50 transition-all group`}>
@@ -70,30 +78,19 @@ export default function Reports() {
                   <FileText className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-sm font-semibold text-white leading-tight">{report.title}</h3>
-                    <span className={`text-xs px-2 py-0.5 rounded-md flex items-center gap-1 flex-shrink-0 ${sConf.className}`}>
-                      <StatusIcon className="w-3 h-3" />{report.status}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-mono bg-white/10 px-1.5 py-0.5 rounded text-slate-400">{report.id}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 font-medium ${sConf.className}`}>
+                      <StatusIcon className="w-3 h-3" /> {report.status}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">{report.type} · {report.pages} pages · {report.size}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{report.author}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Clock className="w-3 h-3 text-slate-500" />
-                    <span className="text-xs text-slate-500">{new Date(report.date).toLocaleString('en-IN')}</span>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white mt-1 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors line-clamp-1">{report.title}</h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-1.5"><BrainCircuit className="w-3 h-3 text-cyan-500" /> {report.author}</p>
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200 dark:border-white/5 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(report.date).toLocaleDateString()}</span>
+                    <span>{report.pages} pages · {report.size}</span>
                   </div>
                 </div>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <button className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs text-slate-300 transition-colors">
-                  <Eye className="w-3.5 h-3.5" /> Preview
-                </button>
-                <button className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/30 rounded-xl text-xs text-cyan-400 transition-colors">
-                  <Download className="w-3.5 h-3.5" /> Download PDF
-                </button>
-                <button className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs text-slate-300 transition-colors">
-                  <Printer className="w-3.5 h-3.5" />
-                </button>
               </div>
             </motion.div>
           )
