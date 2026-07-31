@@ -1,0 +1,127 @@
+version: '3.8'
+
+services:
+  # ── Frontend ────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cycloneshield_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=http://backend:8000
+    networks:
+      - cyclone_net
+
+  # ── Backend API ─────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cycloneshield_backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DATABASE_URL=postgresql://cyclone_user:cyclone_pass@db:5432/cycloneshield_db
+      - REDIS_URL=redis://redis:6379/0
+      - IBM_WATSON_URL=${IBM_WATSON_URL}
+      - IBM_API_KEY=${IBM_API_KEY}
+      - IBM_PROJECT_ID=${IBM_PROJECT_ID}
+      - ENVIRONMENT=production
+    volumes:
+      - ./backend:/app
+    networks:
+      - cyclone_net
+    restart: unless-stopped
+
+  # ── Celery Worker ────────────────────────────────────────────
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cycloneshield_celery
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=4
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DATABASE_URL=postgresql://cyclone_user:cyclone_pass@db:5432/cycloneshield_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    volumes:
+      - ./backend:/app
+    networks:
+      - cyclone_net
+    restart: unless-stopped
+
+  # ── PostgreSQL ───────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: cycloneshield_db
+    environment:
+      POSTGRES_DB: cycloneshield_db
+      POSTGRES_USER: cyclone_user
+      POSTGRES_PASSWORD: cyclone_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+    networks:
+      - cyclone_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cyclone_user -d cycloneshield_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: cycloneshield_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - cyclone_net
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── pgAdmin (Dev only) ───────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: cycloneshield_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@cycloneshield.ai
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+    networks:
+      - cyclone_net
+    profiles:
+      - dev
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  cyclone_net:
+    driver: bridge

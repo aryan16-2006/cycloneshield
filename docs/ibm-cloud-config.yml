@@ -1,0 +1,63 @@
+# IBM Cloud Deployment Configuration
+# CycloneShield AI — IBM Code Engine
+
+# Code Engine Application Configuration
+applications:
+  frontend:
+    name: cycloneshield-frontend
+    image: us.icr.io/cycloneshield/frontend:latest
+    port: 80
+    min-scale: 1
+    max-scale: 5
+    cpu: 0.25
+    memory: 512M
+    env:
+      - name: NODE_ENV
+        value: production
+
+  backend:
+    name: cycloneshield-backend
+    image: us.icr.io/cycloneshield/backend:latest
+    port: 8000
+    min-scale: 1
+    max-scale: 10
+    cpu: 1
+    memory: 2G
+    env:
+      - name: ENVIRONMENT
+        value: production
+      - name: DATABASE_URL
+        valueFrom:
+          secretKeyRef:
+            name: cycloneshield-secrets
+            key: database-url
+      - name: IBM_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: cycloneshield-secrets
+            key: ibm-api-key
+      - name: IBM_WATSON_URL
+        value: https://us-south.ml.cloud.ibm.com
+      - name: IBM_PROJECT_ID
+        valueFrom:
+          secretKeyRef:
+            name: cycloneshield-secrets
+            key: ibm-project-id
+
+# IBM Database for PostgreSQL
+postgresql:
+  service: databases-for-postgresql
+  plan: standard
+  region: us-south
+
+# IBM Databases for Redis
+redis:
+  service: databases-for-redis
+  plan: standard
+  region: us-south
+
+# IBM watsonx.ai
+watson:
+  service: pm-20
+  plan: lite
+  region: us-south
